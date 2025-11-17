@@ -96,13 +96,13 @@ void loop() {
     // Run Duck mesh networking
     duck.run();
     
-    tgps.readData(10000);
+    dgps.readData(10000);
     
     std::cout << "Latitude: " << dgps.lat() << ", Longitude: " << dgps.lng() << '\n';
     std::cout << "Altitude: " << dgps.altitude(DuckGPS::AltitudeUnit::meter) << " meters" << '\n';
     std::cout << "Satellites: " << dgps.satellites() << '\n';
     std::cout << "Speed: " << dgps.speed(DuckGPS::SpeedUnit::kmph) << " km/h" << '\n';
-    std::cout << "Time: " << tgps.epoch() << " epoch seconds" << '\n';
+    std::cout << "Time: " << dgps.epoch() << " epoch seconds" << '\n';
     std::cout << "GeoJSON Point: " << dgps.geoJsonPoint() << '\n';
     
     sleep(5000); // Delay between readings
