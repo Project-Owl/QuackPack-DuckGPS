@@ -13,9 +13,9 @@ void DuckGPS::setup() {
     UBXSendStatus status = ubx.sendMessageWithAck(
             UBXMessageClass::UBX_CLASS_CFG,
             UBXCfgMessageId::UBX_CFG_GNSS,
-            ubx_cfg_gnss.data(),
-            message_GNSS.size(),
-            100
+            this->ubx_cfg_gnss.data(),
+            this->ubx_cfg_gnss.size(),
+            200
     );
     if (status != UBX_SEND_SUCCESS)
         logdbg_ln("Failed to configure GNSS settings");
@@ -23,9 +23,9 @@ void DuckGPS::setup() {
     status = ubx.sendMessageWithAck(
             UBXMessageClass::UBX_CLASS_CFG,
             UBXCfgMessageId::UBX_CFG_RATE,
-            message_1HZ.data(),
-            message_1HZ.size(),
-            100
+            this->message_1HZ.data(),
+            this->message_1HZ.size(),
+            200
     );
     if (status != UBX_SEND_SUCCESS)
         logdbg_ln("Failed to set update rate");
@@ -33,9 +33,9 @@ void DuckGPS::setup() {
     status = ubx.sendMessageWithAck(
             UBXMessageClass::UBX_CLASS_CFG,
             UBXCfgMessageId::UBX_CFG_NAVX5,
-            message_NAVX5.data(),
-            message_NAVX5.size(),
-            100
+            this->message_NAVX5.data(),
+            this->message_NAVX5.size(),
+            200
     );
     if (status != UBX_SEND_SUCCESS)
         logdbg_ln("Failed to configure navigation settings");
@@ -43,9 +43,9 @@ void DuckGPS::setup() {
     status = ubx.sendMessageWithAck(
             UBXMessageClass::UBX_CLASS_CFG,
             0x39,
-            message_JAM.data(),
-            message_JAM.size(),
-            100
+            this->message_JAM.data(),
+            this->message_JAM.size(),
+            200
     );
     if (status != UBX_SEND_SUCCESS)
         logdbg_ln("Failed to enable jamming resistance");
