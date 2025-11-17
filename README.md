@@ -5,7 +5,7 @@
 
 ## Overview
 
-This QuackPack makes it easy to work with ublox GPS chips on devices running the ClusterDuck Protocol firmware. This library handles GPS initialization, chip configuration and data parsing. This QuackPack is designed to work with popular ublox modules such as the NEO-6M, NEO-7M, and NEO-8M series and log messages are handled by the ClusterDuck Protocol's logging framework.
+This QuackPack makes it easy to work with ublox GPS chips on devices running the ClusterDuck Protocol firmware. This library handles GPS initialization, chip configuration and data parsing. This QuackPack is designed to work with popular ublox modules such as the NEO-6M and NEO-8M series and log messages are handled by the ClusterDuck Protocol's logging framework.
 
 ## What is a QuackPack?
 
