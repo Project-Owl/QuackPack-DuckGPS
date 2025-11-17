@@ -33,7 +33,7 @@ void loop() {
     std::cout << "Time: " << dgps.epoch() << " epoch seconds" << '\n';
     std::cout << "GeoJSON Point: " << dgps.geoJsonPoint() << '\n';
 
-    sleep(5000); // Sleep for 60 seconds
+    delay(5000); // Sleep for 60 seconds
 
 
 }
