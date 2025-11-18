@@ -15,7 +15,7 @@ void DuckGPS::setup() {
             UBXCfgMessageId::UBX_CFG_GNSS,
             ubx_cfg_gnss.data(),
             ubx_cfg_gnss.size(),
-            200
+            750
     );
     if (status != UBX_SEND_SUCCESS)
         logdbg_ln("Failed to configure GNSS settings");
@@ -25,7 +25,7 @@ void DuckGPS::setup() {
             UBXCfgMessageId::UBX_CFG_RATE,
             message_1HZ.data(),
             message_1HZ.size(),
-            200
+            750
     );
     if (status != UBX_SEND_SUCCESS)
         logdbg_ln("Failed to set update rate");
@@ -35,7 +35,7 @@ void DuckGPS::setup() {
             UBXCfgMessageId::UBX_CFG_NAVX5,
             message_NAVX5.data(),
             message_NAVX5.size(),
-            200
+            750
     );
     if (status != UBX_SEND_SUCCESS)
         logdbg_ln("Failed to configure navigation settings");
@@ -45,7 +45,7 @@ void DuckGPS::setup() {
             0x39,
             message_JAM.data(),
             message_JAM.size(),
-            200
+            750
     );
     if (status != UBX_SEND_SUCCESS)
         logdbg_ln("Failed to enable jamming resistance");
@@ -71,6 +71,22 @@ void DuckGPS::setup() {
             logdbg_ln(err.c_str());
         }
     }
+}
+bool DuckGPS::findBaudrate(unsigned long timeout) {
+    for (size_t i = 0; i < baudrates.size(); i++) {
+        GPSSerial.begin(baudrates[i]);
+        auto start = std::chrono::steady_clock::now();
+        while (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count() < timeout) {
+            if (GPSSerial.available()) {
+                logdbg_ln(std::string("Found GPS baudrate: " + std::to_string(baudrates[i])).c_str());
+                clearBuffer();
+                return true;
+            }
+        }
+        GPSSerial.end();
+    }
+    logdbg_ln("Failed to find GPS baudrate");
+    return false;
 }
 void DuckGPS::readData(unsigned long ms) {
     std::chrono::time_point<std::chrono::steady_clock> start = std::chrono::steady_clock::now();

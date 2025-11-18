@@ -90,6 +90,12 @@ public:
    * @return double value for chosen altitude unit
    */
     double altitude(AltitudeUnit u);
+    /**
+     * @brief attempts to find the correct baudrate for the GPS module by cycling through common baudrates
+     * @param unsigned long timeout in milliseconds for each baudrate attempt
+     * @return bool true if a working baudrate was found, false otherwise
+     */
+    bool findBaudrate(unsigned long timeout);
 protected:
     void printData();
     std::time_t tmConvert_t(int YYYY, uint8_t MM, uint8_t DD, uint8_t hh, uint8_t mm, uint8_t ss);
@@ -97,6 +103,7 @@ protected:
 private:
     TinyGPSPlus gps;
     HardwareSerial GPSSerial;
+    std::array<uint32_t,9> baudrates = {9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600, 4800};
 
     void clearBuffer()
     {

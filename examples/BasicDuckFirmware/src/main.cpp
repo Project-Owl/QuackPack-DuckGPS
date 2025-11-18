@@ -8,6 +8,7 @@ MamaDuck<DuckWifiNone,DuckLoRa> duck("MAMAGPS1");
 DuckGPS dgps(34, 12); // RX, TX pins
 
 void setup() {
+    Wire.begin(21, 22);
     Serial.begin(115200);
 
     // Initialize the Duck
@@ -15,7 +16,7 @@ void setup() {
     duck.setupWithDefaults();; // or setupMamaDuck() / setupPapaDuck()
     // Initialize and configure your QuackPack
     dgps.setup();
-
+    dgps.findBaudrate(10000);
 
     Serial.println("Duck ready!");
 }
