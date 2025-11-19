@@ -96,6 +96,16 @@ public:
      * @return
      */
     UBXSendStatus setBaudrate(uint32_t baudrate);
+    /**
+     * @brief sends a UBX message and waits for an ACK response
+     * @param msgClass
+     * @param msgId
+     * @param payload
+     * @param payloadSize
+     * @param timeout
+     * @return UBXSendStatus
+     */
+    UBXSendStatus sendMsgWithAck(UBXMessageClass msgClass, UBXCfgMessageId msgId, const uint8_t* payload, size_t payloadSize, uint16_t timeout);
 protected:
     void printData();
     std::time_t tmConvert_t(int YYYY, uint8_t MM, uint8_t DD, uint8_t hh, uint8_t mm, uint8_t ss);
