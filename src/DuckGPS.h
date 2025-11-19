@@ -91,11 +91,11 @@ public:
    */
     double altitude(AltitudeUnit u);
     /**
-     * @brief attempts to find the correct baudrate for the GPS module by cycling through common baudrates
-     * @param unsigned long timeout in milliseconds for each baudrate attempt
-     * @return bool true if a working baudrate was found, false otherwise
+     * @brief sets the baudrate of the GPS module
+     * @param baudrate
+     * @return
      */
-    bool findBaudrate(unsigned long timeout);
+    UBXSendStatus setBaudrate(uint32_t baudrate);
 protected:
     void printData();
     std::time_t tmConvert_t(int YYYY, uint8_t MM, uint8_t DD, uint8_t hh, uint8_t mm, uint8_t ss);
@@ -103,7 +103,7 @@ protected:
 private:
     TinyGPSPlus gps;
     HardwareSerial GPSSerial;
-    std::array<uint32_t,9> baudrates = {9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600, 4800};
+    std::array<uint32_t,8> baudrates = {9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600};
 
     void clearBuffer()
     {
@@ -111,16 +111,6 @@ private:
         while (x--)
             GPSSerial.read();
     }
-
-    std::array<uint8_t,58> ubx_cfg_gnss = {
-            0x00,0x08,0x10,0x00,0x01,0x00,0x01,0x01, // GPS, Min/Max Channel Resources, ENABLED, L1, BIT24 (per uCenter/Query, cut-n-paste of hex frame)
-            0x01,0x01,0x03,0x00,0x01,0x00,0x01,0x01, // SBAS
-            0x02,0x04,0x08,0x00,0x01,0x00,0x01,0x01, // GALILEO
-            0x03,0x08,0x10,0x00,0x00,0x00,0x01,0x01, // BEIDOU (DISABLED)
-            0x04,0x00,0x08,0x00,0x00,0x00,0x01,0x01, // IMES (DISABLED)
-            0x05,0x00,0x03,0x00,0x01,0x00,0x01,0x01, // QZSS
-            0x06,0x08,0x0E,0x00,0x01,0x00,0x01,0x01, // GLONASS
-            0x30,0xAD }; // Fletcher checksum, correct for preceeding frame
 
     std::array<uint8_t,68> message_GPSGLONASSGAL = {// GPS + GALILEO + GLONASS wo / SBAS
 
@@ -223,6 +213,11 @@ private:
     };
     std::array<uint8_t,6> message_1HZ = {
             0xE8, 0x03, // Measurement Rate (1000ms for 1Hz)
+            0x01, 0x00, // Navigation rate, always 1 in GPS mode
+            0x01, 0x00, // Time reference
+    };
+    std::array<uint8_t,8> message_2HZ = {
+            0xF4, 0x01, // Measurement Rate (500ms for 2Hz)
             0x01, 0x00, // Navigation rate, always 1 in GPS mode
             0x01, 0x00, // Time reference
     };
