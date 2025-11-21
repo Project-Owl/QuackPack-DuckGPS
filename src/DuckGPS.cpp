@@ -73,7 +73,7 @@ void DuckGPS::setup() {
     }
 }
 
-UBXSendStatus DuckGPS::sendMsgWithAck(UBXMessageClass msgClass, UBXCfgMessageId msgId, const uint8_t* payload, size_t payloadSize, uint16_t timeout) {
+UBXSendStatus DuckGPS::sendMsgWithAck(UBXMessageClass msgClass, UBXCfgMessageId msgId, uint8_t* payload, size_t payloadSize, uint16_t timeout) {
     Adafruit_UBX ubx(GPSSerial);
     return ubx.sendMessageWithAck(msgClass, msgId, payload, payloadSize, timeout);
 }
