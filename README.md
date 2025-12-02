@@ -103,10 +103,9 @@ void loop() {
     std::cout << "Satellites: " << dgps.satellites() << '\n';
     std::cout << "Speed: " << dgps.speed(DuckGPS::SpeedUnit::kmph) << " km/h" << '\n';
     std::cout << "Time: " << dgps.epoch() << " epoch seconds" << '\n';
-    std::cout << "ISO 8601 Time: " << DuckGPS::toISO8601(dgps.epoch()) << '\n';
+    std::cout << "ISO 8601 Time: " << dgps.toISO8601(dgps.epoch()) << '\n';
     std::cout << "GeoJSON Point: " << dgps.geoJsonPoint() << '\n';
-
-    duck.sendData(topics::gps,dgps.geoJsonPoint());
+    
     sleep(5000); // Delay between readings
     
     
