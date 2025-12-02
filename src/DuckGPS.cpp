@@ -79,7 +79,6 @@ UBXSendStatus DuckGPS::sendMsgWithAck(UBXMessageClass msgClass, UBXCfgMessageId 
 }
 
 UBXSendStatus DuckGPS::setBaudrate(uint32_t baudrate) {
-    Adafruit_UBX ubx(GPSSerial);
     // Prepare the message to set baudrate
     std::array<uint8_t,20> message_baud = {
             0x01,                   // Port ID (1 = UART1)
@@ -93,7 +92,7 @@ UBXSendStatus DuckGPS::setBaudrate(uint32_t baudrate) {
             0x07, 0x00, 0x00, 0x00, // InProtoMask (UBX + NMEA)
             0x07, 0x00, 0x00, 0x00  // OutProtoMask (UBX + NMEA)
     };
-    UBXSendStatus status = ubx.sendMessageWithAck(
+    UBXSendStatus status = DuckGPS::sendMessageWithAck(
             UBXMessageClass::UBX_CLASS_CFG,
             UBXCfgMessageId::UBX_CFG_PRT,
             message_baud.data(),
