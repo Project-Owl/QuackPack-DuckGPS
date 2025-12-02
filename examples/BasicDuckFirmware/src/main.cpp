@@ -33,7 +33,8 @@ void loop() {
     std::cout << "Time: " << dgps.epoch() << " epoch seconds" << '\n';
     std::cout << "ISO 8601 Time: " << DuckUtils::toISO8601(dgps.epoch()) << '\n';
     std::cout << "GeoJSON Point: " << dgps.geoJsonPoint() << '\n';
-
+    
+    duck.sendData(topics::gps,dgps.geoJsonPoint());
     delay(5000); // Sleep for 60 seconds
 
 
