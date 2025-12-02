@@ -120,6 +120,13 @@ void DuckGPS::readData(unsigned long ms) {
     printData();
 }
 
+std::string DuckGPS::toISO8601(time_t epoch) {
+    std::tm* tm_info = std::gmtime(&epoch);
+    char buffer[25];
+    std::strftime(buffer, sizeof(buffer), "%Y-%m-%dT%H:%M:%SZ", tm_info);
+    return std::string(buffer);
+}
+
 std::time_t DuckGPS::tmConvert_t(int YYYY, uint8_t MM, uint8_t DD, uint8_t hh, uint8_t mm, uint8_t ss)
 {
     std::tm tmSet{};

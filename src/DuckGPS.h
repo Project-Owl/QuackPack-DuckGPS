@@ -97,6 +97,12 @@ public:
      */
     UBXSendStatus setBaudrate(uint32_t baudrate);
     /**
+     * @brief converts epoch time to ISO 8601 string
+     * @param epoch
+     * @return ISO 8601 formatted string
+     */
+    std::string toISO8601(time_t epoch);
+    /**
      * @brief sends a UBX message and waits for an ACK response
      * @param msgClass
      * @param msgId
