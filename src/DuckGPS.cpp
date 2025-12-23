@@ -92,7 +92,7 @@ UBXSendStatus DuckGPS::setBaudrate(uint32_t baudrate) {
             0x07, 0x00, 0x00, 0x00, // InProtoMask (UBX + NMEA)
             0x07, 0x00, 0x00, 0x00  // OutProtoMask (UBX + NMEA)
     };
-    UBXSendStatus status = DuckGPS::sendMessageWithAck(
+    UBXSendStatus status = DuckGPS::sendMsgWithAck(
             UBXMessageClass::UBX_CLASS_CFG,
             UBXCfgMessageId::UBX_CFG_PRT,
             message_baud.data(),
@@ -120,7 +120,8 @@ void DuckGPS::readData(unsigned long ms) {
 }
 
 std::string DuckGPS::ISO8601() {
-    std::tm* tm_info = std::gmtime(this->epoch());
+	std::time_t epochTime = epoch();
+    std::tm* tm_info = std::gmtime(&epochTime);
     char buffer[25];
     std::strftime(buffer, sizeof(buffer), "%Y-%m-%dT%H:%M:%SZ", tm_info);
     return std::string(buffer);
