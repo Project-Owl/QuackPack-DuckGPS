@@ -21,7 +21,6 @@ void setup() {
 ```cpp
 DuckGPS(RXPin, TXPin);
 ```
-[Description]
 
 Based on the `DuckGPS` QuackPack template, here are the methods and their documentation:
 
