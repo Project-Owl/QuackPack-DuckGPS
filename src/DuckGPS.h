@@ -12,8 +12,6 @@
 #include <TinyGPS++.h>
 #include <Adafruit_UBloxDDC.h>
 #include <Adafruit_uBlox_typedef.h>
-#include <ctime>
-#include <memory>
 #include <array>
 #include <chrono>
 

@@ -7,6 +7,8 @@
 
 #include <DuckGPS.h>
 #include <Adafruit_UBX.h>
+#include <memory>
+#include <ctime>
 void DuckGPS::setup() {
     // Configure GNSS settings: Enable GPS, disable others
     Adafruit_UBX ubx(GPSSerial);
