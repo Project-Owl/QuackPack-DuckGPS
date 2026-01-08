@@ -32,7 +32,10 @@ void loop() {
     std::cout << "Speed: " << dgps.speed(DuckGPS::SpeedUnit::kmph) << " km/h" << '\n';
     std::cout << "Time: " << dgps.epoch() << " epoch seconds" << '\n';
     std::cout << "ISO 8601 Time: " << dgps.ISO8601() << '\n';
-    std::cout << "GeoJSON Point: " << dgps.geoJsonPoint() << '\n';
+    const auto geojson = dgps.geoJsonPoint();
+    std::cout << "GeoJSON Point: " << geojson << '\n';
+
+    duck.sendData(topics::gps, geojson);
 
     delay(5000); // Sleep for 60 seconds
 
