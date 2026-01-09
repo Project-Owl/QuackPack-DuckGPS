@@ -35,7 +35,7 @@
   "dependencies": [
     {
       "name": "ClusterDuck-Protocol",
-      "version": "https://github.com/ClusterDuck-Protocol/ClusterDuck-Protocol.git"
+      "version": "https://github.com/ClusterDuck-Protocol/ClusterDuck-Protocol/releases/tag/5.0.0"
     },
     {
       "name": "TinyGPSPlus",
@@ -44,6 +44,10 @@
     {
       "name": "Adafruit uBlox",
       "version": "^1.0.0"
+    },
+    {
+      "name": "Adafruit BusIO",
+      "version": "^1.7.3"
     }
   ],
   "export": {
