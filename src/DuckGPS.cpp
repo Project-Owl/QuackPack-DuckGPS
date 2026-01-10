@@ -173,9 +173,9 @@ double DuckGPS::lng() {
 std::string DuckGPS::geoJsonPoint(){
     std::string geojsonpoint = "{\"type\": \"Point\", \"coordinates\": [";
     return geojsonpoint
-            .append(std::to_string(lat()))
+            .append(std::to_string(lng()))
             .append(",")
-            .append(std::to_string(lng())
+            .append(std::to_string(lat())
                             .append("]}"));
 }
 double DuckGPS::altitude(AltitudeUnit u){
