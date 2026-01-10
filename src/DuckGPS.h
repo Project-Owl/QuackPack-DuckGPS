@@ -82,6 +82,13 @@ public:
    */
     uint32_t satellites();
     /**
+   * @brief helper method to return HDOP (Horizontal Dilution of Precision)
+   *
+   * @param none
+   * @return uint32_t value for hdop
+   */
+    uint32_t hdop();
+    /**
    * @brief helper method to return altitude
    *
    * @param DuckGPS::AltitudeUnit

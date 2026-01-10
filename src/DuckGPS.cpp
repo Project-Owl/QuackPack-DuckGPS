@@ -201,3 +201,8 @@ double DuckGPS::speed(SpeedUnit u){
 uint32_t DuckGPS::satellites() {
     return gps.satellites.value();
 }
+
+uint32_t DuckGPS::hdop() {
+    return gps.hdop.value();
+}
+
