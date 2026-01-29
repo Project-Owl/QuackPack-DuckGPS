@@ -51,7 +51,6 @@ board = ttgo-t-beam
 framework = arduino
 
 lib_deps = 
-    https://github.com/ClusterDuck-Protocol/ClusterDuck-Protocol.git
     https://github.com/Project-Owl/QuackPack-DuckGPS.git
 
 monitor_speed = 115200
@@ -89,7 +88,7 @@ void setup() {
     dgps.setup();
     
     
-    Serial.println("Duck ready!");
+    std::cout <<"Duck ready!"<< std::endl;
 }
 
 void loop() {
@@ -148,14 +147,7 @@ Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for de
 
 ### 1.0.0 - [Initial Release Date]
 - Initial release
-- [Feature 1]
-- [Feature 2]
 
-## Roadmap
-
-- [ ] [Planned feature 1]
-- [ ] [Planned feature 2]
-- [ ] [Planned feature 3]
 
 ## License
 
