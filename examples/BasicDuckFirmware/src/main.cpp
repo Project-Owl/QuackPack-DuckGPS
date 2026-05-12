@@ -32,6 +32,8 @@ void loop() {
     std::cout << "Speed: " << dgps.speed(DuckGPS::SpeedUnit::kmph) << " km/h" << '\n';
     std::cout << "Time: " << dgps.epoch() << " epoch seconds" << '\n';
     std::cout << "ISO 8601 Time: " << dgps.ISO8601() << '\n';
+    logdbg_ln("Time: %u", dgps.epoch());
+    logdbg_ln("ISO 8601 Time: %s",duckutils::toString(dgps.ISO8601()));
     const auto geojson = dgps.geoJsonPoint();
     std::cout << "GeoJSON Point: " << geojson << '\n';
 
