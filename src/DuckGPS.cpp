@@ -104,7 +104,7 @@ UBXSendStatus DuckGPS::setBaudrate(uint32_t baudrate) {
     GPSSerial.end();
     if (status == UBX_SEND_SUCCESS) {
         GPSSerial.begin(baudrate, SERIAL_8N1);
-        logdbg_ln(std::string("Set GPS baudrate to: %s",std::to_string(baudrate)).c_str());
+        logdbg_ln("Set GPS baudrate to: %u",baudrate);
     } else {
         logdbg_ln("Failed to set GPS baudrate");
     }
@@ -153,13 +153,13 @@ std::time_t DuckGPS::epoch(){
 void DuckGPS::printData(){
     // Printing the GPS data
     logdbg_ln("--- GPS ---");
-    logdbg_ln(std::string("Latitude  : %s",std::to_string(lat())).c_str());
-    logdbg_ln(std::string("Longitude : %s",std::to_string(lng())).c_str());
-    logdbg_ln(std::string("Altitude : %s M",std::to_string(altitude(AltitudeUnit::meter))).c_str());
-    logdbg_ln(std::string("Satellites : %s",std::to_string(satellites())).c_str());
-    logdbg_ln(std::string("Raw Date : %s",std::to_string(gps.date.value())).c_str());
-    logdbg_ln(std::string("Epoch : %s",std::to_string(epoch())).c_str());
-    logdbg_ln(std::string("Raw Date : %s KPH",std::to_string(speed(SpeedUnit::kmph))).c_str());
+    logdbg_ln("Latitude  : %f",lat());
+    logdbg_ln("Longitude : %f",lng());
+    logdbg_ln("Altitude : %f M",altitude(AltitudeUnit::meter));
+    logdbg_ln("Satellites : %u",satellites());
+    logdbg_ln("Raw Date : %u",gps.date.value());
+    logdbg_ln("Epoch : %u",epoch());
+    logdbg_ln("Raw Date : %f KPH",speed(SpeedUnit::kmph));
     logdbg_ln("**********************");
 }
 
