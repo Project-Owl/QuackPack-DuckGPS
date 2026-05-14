@@ -2,7 +2,6 @@
 #include <iostream>
 #include <Ducks/MamaDuck.h>
 #include <DuckGPS.h>
-#include <utils/DuckUtils.h>
 
 MamaDuck<DuckWifiNone,DuckLoRa> duck("MAMAGPS1");
 DuckGPS dgps(34, 12); // RX, TX pins
@@ -21,19 +20,13 @@ void setup() {
 }
 
 void loop() {
-    // Run Duck mesh networking
-    duck.run();
-
     dgps.readData(10000);
-
     std::cout << "Latitude: " << dgps.lat() << ", Longitude: " << dgps.lng() << '\n';
     std::cout << "Altitude: " << dgps.altitude(DuckGPS::AltitudeUnit::meter) << " meters" << '\n';
     std::cout << "Satellites: " << dgps.satellites() << '\n';
     std::cout << "Speed: " << dgps.speed(DuckGPS::SpeedUnit::kmph) << " km/h" << '\n';
     std::cout << "Time: " << dgps.epoch() << " epoch seconds" << '\n';
     std::cout << "ISO 8601 Time: " << dgps.ISO8601() << '\n';
-    logdbg_ln("Time: %u", dgps.epoch());
-    logdbg_ln("ISO 8601 Time: %s",duckutils::toString(dgps.ISO8601()));
     const auto geojson = dgps.geoJsonPoint();
     std::cout << "GeoJSON Point: " << geojson << '\n';
 
