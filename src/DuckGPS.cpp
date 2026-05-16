@@ -69,8 +69,7 @@ void DuckGPS::setup() {
                                         msg->size(),
                                         750);
         if (status != UBX_SEND_SUCCESS) {
-            std::string err = std::string("Failed to ").append(p.second);
-            logdbg_ln(err.c_str());
+            logdbg_ln("Failed to %s",p.second);
         }
     }
 }
