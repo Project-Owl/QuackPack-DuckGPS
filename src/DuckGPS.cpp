@@ -110,7 +110,7 @@ UBXSendStatus DuckGPS::setBaudrate(uint32_t baudrate) {
     return status;
 }
 
-void DuckGPS::readData(unsigned long ms = 5000) {
+void DuckGPS::readData(unsigned long ms) {
     std::chrono::time_point<std::chrono::steady_clock> start = std::chrono::steady_clock::now();
     do
     {
