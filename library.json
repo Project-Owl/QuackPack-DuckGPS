@@ -35,7 +35,7 @@
   "dependencies": [
     {
       "name": "ClusterDuck-Protocol",
-      "version": "https://github.com/ClusterDuck-Protocol/ClusterDuck-Protocol.git"
+      "version": "https://github.com/faradaym/ClusterDuck-Protocol.git#signal-health"
     },
     {
       "name": "TinyGPSPlus",
