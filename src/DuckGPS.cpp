@@ -110,16 +110,19 @@ UBXSendStatus DuckGPS::setBaudrate(uint32_t baudrate) {
     return status;
 }
 
-void DuckGPS::readData(unsigned long ms) {
+bool DuckGPS::readData(unsigned long ms) {
+    bool newData = false;
     std::chrono::time_point<std::chrono::steady_clock> start = std::chrono::steady_clock::now();
     do
     {
         if (GPSSerial.available() && gps.speed.isUpdated() && gps.satellites.isUpdated() && gps.location.isValid()){
             gps.encode(GPSSerial.read());
+            newData = true;
         } else {
             loginfo_ln("No GPS Lock");
         }
     } while (ms > std::chrono::duration_cast<std::chrono::milliseconds>( std::chrono::steady_clock::now() - start).count());
+    return newData;
 }
 
 std::string DuckGPS::ISO8601() {
