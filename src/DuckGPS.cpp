@@ -115,12 +115,14 @@ bool DuckGPS::readData(unsigned long ms) {
     std::chrono::time_point<std::chrono::steady_clock> start = std::chrono::steady_clock::now();
     do
     {
-        if (GPSSerial.available() && gps.speed.isUpdated() && gps.satellites.isUpdated() && gps.location.isValid()){
-            gps.encode(GPSSerial.read());
-            newData = true;
-        } 
+       if(gps.encode(GPSSerial.read())){
+            if (gps.speed.isUpdated() || gps.satellites.isUpdated() || gps.location.isUpdated()) {
+                newData = true;
+            }
+       }
+       
     } while (ms > std::chrono::duration_cast<std::chrono::milliseconds>( std::chrono::steady_clock::now() - start).count());
-    if(GPSSerial.available() &&  (!gps.speed.isUpdated() || !gps.satellites.isUpdated() || !gps.location.isValid())) loginfo_ln("No GPS Lock");
+    if(!newData) loginfo_ln("No GPS Lock");
     return newData;
 }
 
