@@ -120,7 +120,7 @@ bool DuckGPS::readData(unsigned long ms) {
             newData = true;
         } 
     } while (ms > std::chrono::duration_cast<std::chrono::milliseconds>( std::chrono::steady_clock::now() - start).count());
-    if(!GPSSerial.available()) loginfo_ln("No GPS Lock");
+    if(GPSSerial.available() &&  (!gps.speed.isUpdated() || !gps.satellites.isUpdated() || !gps.location.isValid())) loginfo_ln("No GPS Lock");
     return newData;
 }
 
