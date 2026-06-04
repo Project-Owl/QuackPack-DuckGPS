@@ -44,7 +44,7 @@ Initializes the GPS module and configures the ublox chip for operation.
 
 ### Data Acquisition
 ```cpp
-void readData(unsigned long timeout_ms);
+bool readData(unsigned long timeout_ms);
 ```
 Reads and parses GPS data from the module.
 
