@@ -1,6 +1,6 @@
 {
     "header": "DuckGPS.h",
-    "name": "DuckGPS",
+    "name": "dgps",
     "declaration": "DuckGPS dgps(Rx,Tx);",
     "setup_code": [
         "dgps.setup();"
