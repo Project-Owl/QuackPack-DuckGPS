@@ -118,12 +118,11 @@ public:
     UBXSendStatus sendMsgWithAck(UBXMessageClass msgClass, UBXCfgMessageId msgId, uint8_t* payload, size_t payloadSize, uint16_t timeout);
 protected:
     void printData();
-    std::time_t tmConvert_t(int YYYY, uint8_t MM, uint8_t DD, uint8_t hh, uint8_t mm, uint8_t ss);
+    static std::time_t tmConvert_t(const int& YYYY, const uint8_t& MM, const uint8_t& DD, const uint8_t& hh, const uint8_t& mm, const uint8_t& ss);
 
 private:
     TinyGPSPlus gps;
     HardwareSerial GPSSerial;
-    std::array<uint32_t,8> baudrates = {9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600};
 
     void clearBuffer()
     {
