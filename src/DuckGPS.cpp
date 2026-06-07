@@ -127,10 +127,10 @@ std::string DuckGPS::ISO8601() {
     std::tm* tm_info = std::gmtime(&epochTime);
     char buffer[25];
     std::strftime(buffer, sizeof(buffer), "%Y-%m-%dT%H:%M:%SZ", tm_info);
-    return std::string(buffer);
+    return buffer;
 }
 
-std::time_t DuckGPS::tmConvert_t(int YYYY, uint8_t MM, uint8_t DD, uint8_t hh, uint8_t mm, uint8_t ss)
+std::time_t DuckGPS::tmConvert_t(const int& YYYY, const uint8_t& MM, const uint8_t& DD, const uint8_t& hh, const uint8_t& mm, const uint8_t& ss)
 {
     std::tm tmSet{};
     tmSet.tm_year = YYYY - 1900;
@@ -139,7 +139,7 @@ std::time_t DuckGPS::tmConvert_t(int YYYY, uint8_t MM, uint8_t DD, uint8_t hh, u
     tmSet.tm_hour = hh;
     tmSet.tm_min = mm;
     tmSet.tm_sec = ss;
-    std::time_t t = std::mktime(&tmSet);
+    const std::time_t t = std::mktime(&tmSet);
     return mktime(std::gmtime(&t));
 }
 std::time_t DuckGPS::epoch(){
