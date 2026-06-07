@@ -134,6 +134,18 @@ std::string DuckGPS::ISO8601() {
     return std::string(buffer);
 }
 
+uint8_t DuckGPS::hour(){
+    return gps.time.hour();
+}
+uint8_t DuckGPS::minute(){
+    return gps.time.minute();
+}
+
+uint8_t DuckGPS::second(){
+    return gps.time.second();
+}
+
+
 std::time_t DuckGPS::tmConvert_t(int YYYY, uint8_t MM, uint8_t DD, uint8_t hh, uint8_t mm, uint8_t ss)
 {
     std::tm tmSet{};

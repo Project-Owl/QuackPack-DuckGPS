@@ -115,6 +115,9 @@ public:
      * @param timeout
      * @return UBXSendStatus
      */
+    uint8_t hour();
+    uint8_t minute();
+    uint8_t second();
     UBXSendStatus sendMsgWithAck(UBXMessageClass msgClass, UBXCfgMessageId msgId, uint8_t* payload, size_t payloadSize, uint16_t timeout);
 protected:
     void printData();
