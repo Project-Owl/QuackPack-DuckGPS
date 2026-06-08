@@ -117,7 +117,7 @@ void DuckGPS::readData(unsigned long ms) {
         if (GPSSerial.available() && gps.speed.isUpdated() && gps.satellites.isUpdated() && gps.location.isValid()){
             gps.encode(GPSSerial.read());
         } else {
-            loginfo_ln("No GPS Lock");
+            logdbg_ln("No GPS Lock");
         }
     } while (ms > std::chrono::duration_cast<std::chrono::milliseconds>( std::chrono::steady_clock::now() - start).count());
 }
@@ -172,7 +172,7 @@ double DuckGPS::lng() {
     return gps.location.lng();
 }
 std::string DuckGPS::geoJsonPoint(){
-    std::string geojsonpoint = "{\"type\": \"Point\", \"coordinates\": [";
+    std::string geojsonpoint = R"({"type": "Point", "coordinates": [)";
     return geojsonpoint
             .append(std::to_string(lng()))
             .append(",")
