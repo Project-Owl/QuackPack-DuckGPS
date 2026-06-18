@@ -106,6 +106,17 @@ public:
      * @return ISO 8601 formatted string
      */
     std::string ISO8601();
+
+    enum zone {
+        Central = -6,
+        NewYork = -5,
+        California = -8,
+        Netherlands = 1,
+    };
+
+    //DELETE AFTER PHOENIX this doesn't take into account date or validate input
+    int localHour(zone tzOffset = zone::Central, bool daylightSavings = false);
+
     /**
      * @brief sends a UBX message and waits for an ACK response
      * @param msgClass

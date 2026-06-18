@@ -137,6 +137,12 @@ std::string DuckGPS::ISO8601() {
 uint8_t DuckGPS::hour(){
     return gps.time.hour();
 }
+
+//DELETE AFTER PHOENIX this doesn't take into account date or validate input
+int DuckGPS::localHour(zone tzOffset, bool daylightSavings){
+    return (gps.time.hour() + tzOffset + daylightSavings + 24) % 24;
+}
+
 uint8_t DuckGPS::minute(){
     return gps.time.minute();
 }
