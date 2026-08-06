@@ -35,7 +35,7 @@
   "dependencies": [
     {
       "name": "ClusterDuck-Protocol",
-      "version": "https://github.com/Project-Owl/ClusterDuck-Protocol.git#phoenix-2026"
+      "version": "https://github.com/Project-Owl/ClusterDuck-Protocol.git#all-packet-counter"
     },
     {
       "name": "TinyGPSPlus",
@@ -61,4 +61,3 @@
     ]
   }
 }
-
