@@ -1,9 +1,12 @@
 {
     "header": "DuckGPS.h",
     "name": "dgps",
-    "declaration": "DuckGPS dgps(Rx,Tx);",
+    "declaration": "DuckGPS dgps;",
     "setup_code": [
-        "dgps.setup();"
+        "dgps.begin(Rx, Tx);"
+    ],
+    "loop_code": [
+        "dgps.update();"
     ],
     "defs": ["Rx", "Tx"],
     "topic": "gps"
