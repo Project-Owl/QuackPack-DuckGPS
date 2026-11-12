@@ -1,7 +1,7 @@
 {
   "name": "QuackPack-DuckGPS",
-  "version": "1.0.0",
-  "description": "GPS utility library for ClusterDuck Protocol",
+  "version": "1.1.0",
+  "description": "GPS QuackPack for ClusterDuck Protocol ducks: non-blocking NMEA parsing with TinyGPS++, automatic baud detection and u-blox setup",
   "keywords": [
     "iot",
     "lora",
@@ -32,33 +32,18 @@
   "homepage": "https://clusterduckprotocol.org",
   "frameworks": "arduino",
   "platforms": "espressif32",
-  "dependencies": [
-    {
-      "name": "ClusterDuck-Protocol",
-      "version": "https://github.com/Project-Owl/ClusterDuck-Protocol.git#phoenix-2026"
-    },
-    {
-      "name": "TinyGPSPlus",
-      "version": "^1.0.1"
-    },
-    {
-      "name": "Adafruit uBlox",
-      "version": "^1.0.0"
-    },
-    {
-      "name": "Adafruit BusIO",
-      "version": "^1.7.3"
-    }
-  ],
+  "dependencies": {
+    "mikalhart/TinyGPSPlus": "^1.0.2"
+  },
   "export": {
     "include": [
       "src",
       "examples",
       "library.json",
       "library.properties",
+      "manifest.json",
       "LICENSE",
       "README.md"
     ]
   }
 }
-

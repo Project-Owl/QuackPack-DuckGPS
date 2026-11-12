@@ -1,0 +1,13 @@
+{
+    "header": "DuckGPS.h",
+    "name": "dgps",
+    "declaration": "DuckGPS dgps;",
+    "setup_code": [
+        "dgps.begin(Rx, Tx);"
+    ],
+    "loop_code": [
+        "dgps.update();"
+    ],
+    "defs": ["Rx", "Tx"],
+    "topic": "gps"
+}
