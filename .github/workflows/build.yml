@@ -30,5 +30,8 @@ jobs:
         # Same PlatformIO Core as the DMS builder image
         run: pip install platformio==6.1.19
 
-      - name: Build the example
-        run: pio run
+      - name: Build classic T-Beam and Supreme L76K examples
+        run: pio run -e lilygo_t_beam_sx1262 -e supreme_l76k
+
+      - name: Run GNSS host regression tests with sanitizers
+        run: bash tests/host/run.sh

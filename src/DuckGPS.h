@@ -22,9 +22,13 @@
 #include <TinyGPS++.h>
 #include <ctime>
 #include <string>
+#include "DuckGPSFix.h"
+// Optional CDP defaults. Explicit pins also allow standalone GNSS sketches.
+#if __has_include("include/cdpcfg.h")
 #include "include/cdpcfg.h"
+#endif
 
-#define DUCKGPS_VERSION "1.1.0"
+#define DUCKGPS_VERSION "1.2.0"
 
 // Default UART pins for begin(): the board's CDPCFG_GPS_RX/TX when CDP defines
 // them, otherwise the T-Beam wiring (GPS TX -> GPIO34, GPS RX <- GPIO12).
@@ -69,6 +73,43 @@
 
 class DuckGPS {
 public:
+    enum class Receiver { NmeaOnly, L76K };
+    enum class State { Idle, WaitingForPower, Detecting, Configuring, Observing, Ready, TimedOut, InvalidOptions };
+    struct Options {
+        Receiver receiver = Receiver::NmeaOnly;
+        int rxPin = DUCKGPS_DEFAULT_RX;
+        int txPin = DUCKGPS_DEFAULT_TX;
+        uint32_t baud = 9600; // 0: passive baud scan, never sends u-blox probes.
+        uint32_t powerSettleMs = 1500; // elapsed-time wait, no delay().
+        uint32_t detectionWindowMs = 1500; // per baud; >= one 1 Hz NMEA cycle.
+        uint32_t observationTimeoutMs = 10000;
+        uint16_t maxBytesPerUpdate = 512;
+        uint16_t joinWindowMs = 250;
+        bool configure = true; // Only L76K sends configuration in this API.
+        uint8_t constellations = 0; // 0 preserves receiver default; PCAS04 modes 1..7.
+    };
+    struct Status {
+        State state = State::Idle;
+        bool receiverHeard = false; // Valid NMEA, not verified module identity.
+        bool commandsSent = false; // PCAS has no configuration ACK/readback here.
+        bool outputObserved = false; // GGA + RMC observed after configuration.
+        bool oneHzObserved = false; // Consecutive solution timestamps, not fix quality.
+    };
+    /**
+     * Nonblocking startup for L76K or read-only NMEA. Power the board/receiver
+     * first; call update() frequently throughout startup and operation.
+     * Returns options accepted, NOT receiver found/configured or a position fix.
+     * L76K setup requests 1 Hz GGA/RMC, optionally PCAS04 constellations. It
+     * neither changes baud nor factory-resets/saves receiver configuration.
+     */
+    bool start(const Options& options);
+    const Status& status() const { return status_; }
+    /// Callback runs in update(), once per assembled solution (including no-fix).
+    /// Copy into a bounded application queue; do not write SD/block/reenter here.
+    void onFix(DuckGPSFixStream::Callback callback, void* context = nullptr) { fixes_.onFix(callback, context); }
+    bool latestFix(DuckGPSFix& out) const { return fixes_.latest(out); }
+    uint32_t fixCount() const { return fixes_.emitted(); }
+    uint32_t rejectedSentences() const { return fixes_.rejected(); }
     /// Pass as the baud argument of begin() to detect the module's baud rate.
     static constexpr uint32_t AUTO_BAUD = 0;
     /// Default freshness limit for hasFix(), timeValid() and toJson().
@@ -120,10 +161,10 @@ public:
     void end();
 
     /**
-     * @brief Parses every byte waiting in the UART and returns. Never blocks;
-     * call it on every loop() pass.
+     * @brief Advances async startup and parses a bounded batch of waiting UART
+     * bytes. No delay or wait-for-fix loop. Callback work must remain bounded.
      *
-     * @return true if at least one new sentence with a position fix was parsed
+     * @return true if at least one solution snapshot was emitted (may be no-fix)
      */
     bool update();
 
@@ -195,15 +236,16 @@ public:
      * @brief Writes the GPS payload as JSON, ready for topics::gps.
      *
      * With a position: {"c":N,"lat":..,"lng":..,"alt":..,"sats":..,"hdop":..,"t":".."}
-     * - lat and lng have 5 decimals; alt is in metres with 1 decimal; hdop
-     *   is the real HDOP with 1 decimal.
+     * - lat and lng have 6 decimals; alt is MSL metres with 1 decimal; hdop
+     *   is dimensionless with 2 decimals. Fields come from one fix snapshot.
      * - "stale":true is added when the last fix is older than maxAgeMs.
-     * Without a position: {"c":N,"error":"No GPS fix","sats":..,"chars":..,"t":".."}
+     * Without a position: {"c":N,"error":"No GPS fix","chars":..}
      * - chars is the number of bytes received from the GPS, for diagnostics.
      * In both forms "c" is left out when counter is negative, and "t" (ISO 8601
-     * UTC) only appears when timeValid(maxAgeMs). alt and hdop only appear when
-     * the receiver reported them. The longest possible output is about 150
-     * bytes, well inside CDP's 228-byte payload limit.
+     * UTC with milliseconds) is the ORIGINAL fix time, even for stale output.
+     * It is omitted for a GGA-only solution without a date. Altitude, satellite
+     * count and HDOP appear only when present in that epoch; invalid current
+     * solutions never reuse a last-known position. Overflow returns 0.
      *
      * @param out destination buffer; JSON_MAX_LEN bytes always suffice
      * @param outSize size of out in bytes
@@ -255,6 +297,24 @@ private:
     uint32_t baud_ = 0;
     bool started_ = false;
     bool ublox_ = false;
+    DuckGPSFixStream fixes_;
+    Options options_;
+    Status status_;
+    bool async_ = false;
+    uint32_t phaseAt_ = 0;
+    uint32_t lastCommandAt_ = 0;
+    uint32_t observedSequence_ = 0;
+    uint32_t previousTod_ = 0;
+    bool havePreviousTod_ = false;
+    uint8_t baudIndex_ = 0;
+    uint8_t commandIndex_ = 0;
+    bool portOpen_ = false;
+
+    void ingest(char byte);
+    void advanceStartup();
+    void receiverHeard();
+    void openAsyncPort();
+    bool writePcas(const char* body);
 
     bool detectBaud();
     bool probe(uint32_t baud, uint32_t windowMs, bool& nmeaSeen);
