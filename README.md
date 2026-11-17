@@ -12,7 +12,7 @@ This QuackPack adds GPS position and time to a Duck. It reads NMEA from a GPS mo
 - configures u-blox receivers (NEO-6M, NEO-7M, NEO-M8N and similar);
 - builds the GPS payload for the ClusterDuck Protocol `gps` topic.
 
-Logging goes through the ClusterDuck Protocol logger.
+CDP logging is used when available; standalone GNSS sketches need only TinyGPSPlus. For L76K use the nonblocking `start(Options)` API below. The legacy u-blox `begin()` API still performs blocking setup.
 
 ## What is a QuackPack?
 
@@ -23,7 +23,8 @@ A **QuackPack** is a modular library that extends Duck firmware with application
 ### Supported boards
 
 - **Primary**: LilyGO T-Beam v1.2 (SX1262, AXP2101 PMU)
-- **Also**: T-Beam v1.0/v1.1, and any ESP32 board with a GPS module on a hardware UART
+- **Also**: T-Beam v1.0/v1.1, and ESP32 boards with a GPS module on a hardware UART
+- **New profile/example**: T-Beam Supreme L76K, compile- and host-tested; physical validation remains required. This PR does not add M10 configuration support.
 
 ### Wiring
 
@@ -57,7 +58,7 @@ Cutting ALDO3 before deep sleep powers the GPS down. Call `dgps.end()` before sl
 ### Requirements
 
 - [PlatformIO](https://platformio.org/)
-- A Duck firmware project based on [ClusterDuck Protocol](https://github.com/ClusterDuck-Protocol/ClusterDuck-Protocol) 5.x (the example is built against CDP 5.5)
+- An ESP32 Arduino project; CDP 5.x is optional (the mesh example is built against CDP 5.5)
 
 ### Pinning it in a project (DMS, CDP or your own)
 
@@ -73,7 +74,7 @@ lib_deps =
 
 `git rev-list -n 1 v1.1.0` prints the commit of a tag.
 
-The library depends only on `mikalhart/TinyGPSPlus`, which PlatformIO installs automatically. If your project already pins it (DMS uses `mikalhart/TinyGPSPlus@1.0.2`), that version is used.
+The library depends only on `mikalhart/TinyGPSPlus`, pinned to tested version **1.0.3**. Broad `^1.0.2` resolution now selects 1.1.0, whose new pending location mode field is read uninitialized when GGA commits before an RMC mode; sanitizer testing caught this. Do not silently override the verified parser version in the application. No third-party source is modified or vendored here.
 
 **It has no ClusterDuck-Protocol dependency on purpose.** A git-URL dependency in a library's `library.json` is re-resolved on every `pio pkg install`, and it replaces the CDP version the project pinned. Version 1.0.0 did this: a project pinning CDP 5.5 ended up building CDP 5.0.1. Each project pins CDP itself.
 
@@ -116,6 +117,61 @@ void loop() {
 
 The full sketch is in [examples/BasicDuckFirmware](examples/BasicDuckFirmware/src/main.cpp).
 
+## L76K and read-only NMEA: nonblocking startup
+
+```cpp
+DuckGPS gnss;
+DuckGPS::Options options;
+options.receiver = DuckGPS::Receiver::L76K;
+options.rxPin = 9;                  // Supreme host RX, per LILYGO working example
+options.txPin = 8;
+options.baud = 9600;                // confirmed/default L76K baud
+options.constellations = 0;         // preserve factory selection; 7 requests GPS+BDS+GLONASS
+// Power GNSS first. start() accepts options; it does not wait for a receiver/fix.
+bool accepted = gnss.start(options);
+// In every loop pass:
+gnss.update();
+```
+
+See [the standalone Supreme example](examples/L76K/src/main.cpp) for AXP2101 **ALDO4**, PMU Wire1 pins 42/41, and L76K wake GPIO7. The classic T-Beam's ALDO3 example must not be copied to the Supreme. Manufacturer [utilities](https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series/blob/master/examples/GPS/TinyGPS_Example/utilities.h) specify host RX9/TX8; module-perspective tables can be misleading. Verify your purchased revision and antenna before flashing.
+
+`Options.receiver = Receiver::NmeaOnly` is passive/read-only, including for a preconfigured receiver. It sends no proprietary configuration. The L76K path uses **PCAS**, not u-blox UBX or MediaTek PMTK. There is no auto-detection guess about receiver model. The selected profile is a caller assertion, not verified hardware identity.
+
+### Startup and service budget
+
+| Phase | Behaviour |
+| --- | --- |
+| Power settling | Default 1500 ms elapsed-time grace, matching LILYGO's startup example. `update()` returns between checks; the board must already be powered. |
+| Detection | Listen for a checksummed NMEA sentence; no first fix required. Fixed baud is preferred. `baud=0` passively tries 9600, 115200, 38400, 57600, 19200 and 4800 with a 1500 ms window each. |
+| Configuration | L76K: request 1 Hz and GGA/RMC once per solution using PCAS02/03; optional PCAS04 constellation selection. At least 100 ms between command writes, no blocking delay. Only enqueue a command when the whole frame fits the UART TX buffer. |
+| Observation | `commandsSent` is not a configuration ACK. Observe paired GGA/RMC and consecutive 1-second solution times before `Ready` for configured L76K. Observation timeout defaults to 10 s. |
+| Acquisition | Valid output with no position is normal while searching. Keep servicing GNSS/mesh; never sit in a wait-for-fix loop or reset the receiver every report. `Ready` describes observed output, not a usable location or verified constellation readback. |
+| Late/missing output | `TimedOut` is visible but parsing continues; late valid output can recover. A completed passive scan falls back to 9600. For other known baud rates supply the actual baud or deliberately restart scanning. |
+
+The PCAS text set commands used here have no handled ACK/readback. Rate and sentence output are observed, not proof that every configuration choice applied. No factory reset, baud change, flash-save, assistance download or unverified jamming settings are sent. The 1 Hz configuration intentionally avoids the protocol's higher-rate sentence/115200 constraints. Use the [Quectel L76K protocol specification](https://github.com/Seeed-Projects/Seeed_L76K-GNSS_for_XIAO/blob/fb74b715224e0ac153c3884e578ee8e024ed8946/docs/Quectel_L76K_GNSS_Protocol_Specification_V1.1.pdf) for those extensions.
+
+There is no delay/wait loop in `start()` or its `update()` path. Arduino UART opening/enqueueing and callback execution still cost time: this is cooperative bounded work, not a hard real-time guarantee. `maxBytesPerUpdate` defaults to 512 and the UART RX buffer to 2048. Call more often than the incoming data can fill that buffer, measure the worst loop gap, and bound SD work. A UART/hardware overrun can lose data before this library sees it; this API does not claim an overrun counter it cannot observe.
+
+### Coherent fix capture and quality
+
+```cpp
+void capture(const DuckGPSFix& fix, void* context) {
+    // Copy EVERY snapshot into your bounded logger queue here.
+    // Account for queue-full; do not write SD, print, wait, or call update() here.
+}
+gnss.onFix(capture, nullptr);        // registration survives restart
+DuckGPSFix current;
+if (gnss.latestFix(current)) { /* inspect immutable fields/validity */ }
+```
+
+The stream pairs GGA and RMC by UTC time-of-day (millisecond resolution), regardless of talker/order. It emits once after both arrive, at the next epoch, or after `joinWindowMs` (250 ms default) when the UART backlog is drained. Missing partners are explicit: RMC-only has no GGA quality/altitude; GGA-only has no date. No previous date is inferred across midnight. Late partners are ignored rather than producing another row. The bounded duplicate cache covers the last 16 emitted epochs within 60 seconds, not arbitrary historical replay.
+
+Invalid/no-fix solutions are emitted with `positionValid=false`. Preserve them as diagnostics without presenting zero/default coordinates as a valid location. `quality`, satellite/HDOP validity, MSL altitude, original UTC, receive millis and sequence are available. `rejectedSentences()` counts checksum/format rejects; `fixCount()` counts emitted solutions. No SD storage is implemented by this library.
+
+A first valid fix is not an accuracy guarantee. Keep the receiver running between radio reports, allow open-sky acquisition, compare constellation mode 7 against factory selection on the actual antenna, and measure stationary spread and reference error before choosing thresholds. Applications may require fresh UTC, enough satellites, acceptable HDOP and stable consecutive fixes for a usable report, while retaining every snapshot in the log. Poor HDOP should not erase evidence. A GNSS outage must remain unknown; the library never invents a position or a horizontal accuracy in metres from HDOP. `hasFix()` checks current snapshot validity/arrival age only, not these application quality thresholds.
+
+Raw getters and `parser()` remain legacy latest-field access. Use `latestFix()` or `onFix()` for coherent records; `epoch()`/`timeValid()` describe parser time and can advance independently of position. `toJson()` uses the immutable snapshot.
+
 ## API
 
 Include `<DuckGPS.h>`; the class is `DuckGPS`. All times are UTC.
@@ -125,7 +181,7 @@ Include `<DuckGPS.h>`; the class is `DuckGPS`. All times are UTC.
 | `DuckGPS(HardwareSerial& port = Serial1)` | Creates the handler. Does not touch the hardware. |
 | `bool begin(int rx = DUCKGPS_DEFAULT_RX, int tx = DUCKGPS_DEFAULT_TX, uint32_t baud = DuckGPS::AUTO_BAUD, bool configureUblox = true)` | Opens the UART and detects and configures the module (see below). Returns false if nothing answered; the UART stays open. |
 | `void end()` | Closes the UART (for example before deep sleep). |
-| `bool update()` | Parses the bytes waiting in the UART and returns. Call it on every `loop()` pass. True if a new sentence with a fix arrived. |
+| `bool update()` | Advances async startup and parses at most 512 waiting bytes by default. Call frequently. True if a solution snapshot was emitted, including a no-fix solution. |
 | `bool readData(unsigned long ms = 5000)` | Blocking: parses for `ms` milliseconds. True if a new fix arrived. Prefer `update()`. |
 | `bool hasFix(uint32_t maxAgeMs = 5000)` | A position fix arrived within `maxAgeMs`. |
 | `bool timeValid(uint32_t maxAgeMs = 5000)` | A plausible UTC date and time arrived within `maxAgeMs`. A receiver often knows the time before it has a fix. |
@@ -150,24 +206,24 @@ Constants: `DuckGPS::AUTO_BAUD` (0), `DuckGPS::DEFAULT_MAX_AGE_MS` (5000), `Duck
 With a position:
 
 ```json
-{"c":7,"lat":48.11730,"lng":11.51667,"alt":545.4,"sats":8,"hdop":0.9,"t":"2026-11-04T12:35:19Z"}
+{"c":7,"lat":48.117300,"lng":11.516667,"alt":545.4,"sats":8,"hdop":0.90,"t":"2026-11-04T12:35:19.000Z"}
 ```
 
 Without a position:
 
 ```json
-{"c":7,"error":"No GPS fix","sats":0,"chars":420,"t":"2026-11-04T12:35:19Z"}
+{"c":7,"error":"No GPS fix","chars":420}
 ```
 
 - `c` is the counter argument; it is left out when the counter is negative.
-- `lat` and `lng` have 5 decimals.
+- `lat` and `lng` have 6 decimals; this is representation precision, not measured accuracy.
 - `alt` is in metres, the unit the DMS expects.
 - `hdop` is the real HDOP.
 - `"stale":true` is added when the last fix is older than `maxAgeMs`.
-- `t` only appears when `timeValid(maxAgeMs)`.
-- `alt` and `hdop` only appear when the receiver reported them.
-- `chars` counts the bytes received from the module. 0 means a wiring or power problem.
-- The longest possible payload is about 150 bytes, inside CDP's 228-byte limit.
+- `t` is the original solution UTC (including milliseconds), retained when stale. A GGA-only solution has no known date and omits `t`. A later time-only sentence never relabels old coordinates.
+- `alt`, `sats` and `hdop` only appear when supplied in this solution. No old quality or altitude fields are carried forward. `hdop` is dimensionless, not metres.
+- `chars` counts bytes parsed from the module. Zero is a diagnostic cue, not proof of a specific wiring/power fault.
+- The bounded JSON writer returns 0 (and an empty buffer) on overflow; check its result before sending.
 
 ### What `begin()` does
 
@@ -220,7 +276,14 @@ pio run -t upload
 pio device monitor
 ```
 
-`platformio.ini` uses the same platform as the DMS builder (espressif32 7.0.1) and CDP 5.5 pinned by commit. GitHub Actions runs `pio run` on every push and pull request.
+`platformio.ini` uses the same platform as the DMS builder (espressif32 7.0.1) and CDP 5.5 pinned by commit. GitHub Actions builds both examples and runs host tests on every push and pull request.
+
+```bash
+pio run -e supreme_l76k
+bash tests/host/run.sh
+```
+
+The host suite runs the real fix assembler and DuckGPS with a fake UART/clock under AddressSanitizer and UndefinedBehaviorSanitizer. It covers PCAS checksums, startup/backpressure/timeouts/recovery, bounded input, coherent burst capture, missing/invalid fields, dates/midnight, duplicates, JSON and the legacy API. These are not physical receiver/RF tests. Validate cold/warm start, observed rate, serial service gaps, fix spread and power on the actual L76K before deployment.
 
 ## Compatibility
 
@@ -234,6 +297,14 @@ pio device monitor
 Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
 
 ## Changelog
+
+### 1.2.0 (proposed)
+
+- Explicit nonblocking L76K/read-only startup profiles; existing blocking u-blox begin API retained.
+- Bounded GGA/RMC solution snapshots and callbacks, including no-fix states and field validity.
+- JSON retains original fix timestamps and six decimal places; current invalid fixes cannot reuse old coordinates.
+- Standalone Supreme example, host regression tests and CI for both examples.
+- No M10 configuration or physical GNSS accuracy/endurance claim in this release.
 
 ### 1.1.0
 

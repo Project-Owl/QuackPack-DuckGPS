@@ -6,7 +6,13 @@
  */
 
 #include <DuckGPS.h>
+#if __has_include("utils/DuckLogger.h")
 #include "utils/DuckLogger.h"
+#else
+#define loginfo_ln(...) ((void)0)
+#define logdbg_ln(...) ((void)0)
+#define logerr_ln(...) ((void)0)
+#endif
 #include <cstdarg>
 #include <cstdio>
 #include <limits>
@@ -240,12 +246,16 @@ DuckGPS::DuckGPS(HardwareSerial& port) : GPSSerial(port) {}
 bool DuckGPS::begin(int rxPin, int txPin, uint32_t baud, bool configureUblox) {
     if (started_) end();
     ublox_ = false;
+    async_ = false;
+    status_ = {};
+    fixes_.reset();
 
     // The RX buffer can only be resized while the UART is closed.
     GPSSerial.setRxBufferSize(DUCKGPS_RX_BUFFER_SIZE);
     baud_ = (baud == AUTO_BAUD) ? DUCKGPS_FALLBACK_BAUD : baud;
     GPSSerial.begin(baud_, SERIAL_8N1, rxPin, txPin);
     started_ = true;
+    portOpen_ = true;
 
     bool heard = true;
     if (baud == AUTO_BAUD) {
@@ -272,8 +282,10 @@ bool DuckGPS::begin(int rxPin, int txPin, uint32_t baud, bool configureUblox) {
 
 void DuckGPS::end() {
     if (!started_) return;
-    GPSSerial.end();
+    if (portOpen_) GPSSerial.end();
+    portOpen_ = false;
     started_ = false;
+    status_.state = State::Idle;
 }
 
 bool DuckGPS::detectBaud() {
@@ -415,7 +427,7 @@ DuckGPS::UbxReply DuckGPS::sendUbxWithAck(uint8_t msgClass, uint8_t msgId, const
                 }
             } else if (wasIdle && value != UBX_SYNC_1) {
                 // NMEA keeps flowing while we wait; parse it rather than drop it.
-                gps.encode(static_cast<char>(value));
+                ingest(static_cast<char>(value));
             }
         }
         delay(1);
@@ -451,17 +463,151 @@ void DuckGPS::clearBuffer() {
         GPSSerial.read();
 }
 
+bool DuckGPS::start(const Options& options) {
+    end();
+    fixes_.reset();
+    status_ = {}; options_ = options; async_ = true; ublox_ = false;
+    baud_ = 0; observedSequence_ = 0; havePreviousTod_ = false;
+    baudIndex_ = commandIndex_ = 0;
+    if (options.rxPin < 0 || options.maxBytesPerUpdate == 0 ||
+        options.detectionWindowMs < 1000 || options.detectionWindowMs > 60000 ||
+        options.powerSettleMs > 60000 || options.observationTimeoutMs < 2000 ||
+        options.observationTimeoutMs > 120000 || options.joinWindowMs > 900 ||
+        options.constellations > 7 ||
+        (options.receiver != Receiver::NmeaOnly && options.receiver != Receiver::L76K) ||
+        (options.receiver == Receiver::L76K && options.configure && options.txPin < 0)) {
+        status_.state = State::InvalidOptions;
+        return false;
+    }
+    fixes_.setJoinWindow(options.joinWindowMs);
+    GPSSerial.setRxBufferSize(DUCKGPS_RX_BUFFER_SIZE);
+    started_ = true; phaseAt_ = millis();
+    status_.state = State::WaitingForPower;
+    return true;
+}
+
+namespace {
+constexpr uint32_t PASSIVE_BAUDS[] = {9600, 115200, 38400, 57600, 19200, 4800};
+}
+
+void DuckGPS::openAsyncPort() {
+    baud_ = options_.baud ? options_.baud : PASSIVE_BAUDS[baudIndex_];
+    GPSSerial.begin(baud_, SERIAL_8N1, options_.rxPin, options_.txPin);
+    portOpen_ = true; phaseAt_ = millis(); status_.state = State::Detecting;
+}
+
+void DuckGPS::receiverHeard() {
+    status_.receiverHeard = true;
+    if (status_.state != State::Detecting && status_.state != State::TimedOut) return;
+    phaseAt_ = millis();
+    if (options_.receiver == Receiver::L76K && options_.configure) {
+        status_.state = State::Configuring; commandIndex_ = 0;
+        lastCommandAt_ = millis() - 100;
+    } else {
+        status_.state = State::Observing;
+    }
+}
+
+bool DuckGPS::writePcas(const char* body) {
+    uint8_t checksum = 0;
+    for (const char* p = body; *p; ++p) checksum ^= uint8_t(*p);
+    char command[96];
+    const int n = snprintf(command, sizeof(command), "$%s*%02X\r\n", body, unsigned(checksum));
+    if (n <= 0 || size_t(n) >= sizeof(command) || GPSSerial.availableForWrite() < n) return false;
+    // Only write if it fits the UART TX buffer: no flush()/waiting for TX drain.
+    return GPSSerial.write(reinterpret_cast<const uint8_t*>(command), size_t(n)) == size_t(n);
+}
+
+void DuckGPS::advanceStartup() {
+    if (!async_ || !started_) return;
+    const uint32_t now = millis();
+    switch (status_.state) {
+    case State::WaitingForPower:
+        if (uint32_t(now-phaseAt_) >= options_.powerSettleMs) openAsyncPort();
+        break;
+    case State::Detecting:
+        if (uint32_t(now-phaseAt_) >= options_.detectionWindowMs) {
+            if (!options_.baud && ++baudIndex_ < sizeof(PASSIVE_BAUDS)/sizeof(PASSIVE_BAUDS[0])) {
+                GPSSerial.end(); portOpen_ = false;
+                fixes_.reset();
+                openAsyncPort();
+            } else {
+                // Continue listening at the requested/fallback baud. Late startup
+                // can recover without a reset, but report the transport timeout.
+                if (!options_.baud) { baud_ = DUCKGPS_FALLBACK_BAUD; GPSSerial.updateBaudRate(baud_); }
+                status_.state = State::TimedOut;
+            }
+        }
+        break;
+    case State::Configuring: {
+        if (uint32_t(now-phaseAt_) >= options_.observationTimeoutMs) {
+            status_.state = State::TimedOut; break;
+        }
+        if (uint32_t(now-lastCommandAt_) < 100) break;
+        const char* body = nullptr;
+        char constellation[24];
+        if (commandIndex_ == 0) body = "PCAS02,1000";
+        else if (commandIndex_ == 1) body = "PCAS03,1,0,0,0,1,0,0,0,0,0,,,0,0";
+        else if (commandIndex_ == 2 && options_.constellations) {
+            snprintf(constellation, sizeof(constellation), "PCAS04,%u", unsigned(options_.constellations));
+            body = constellation;
+        }
+        if (body && !writePcas(body)) break;
+        lastCommandAt_ = now;
+        if (!body || ++commandIndex_ == (options_.constellations ? 3 : 2)) {
+            status_.commandsSent = true; status_.state = State::Observing;
+            phaseAt_ = now; observedSequence_ = fixes_.emitted(); havePreviousTod_ = false;
+        }
+        break;
+    }
+    case State::Observing:
+        if (uint32_t(now-phaseAt_) >= options_.observationTimeoutMs) status_.state = State::TimedOut;
+        break;
+    default: break;
+    }
+}
+
+void DuckGPS::ingest(char byte) {
+    gps.encode(byte);
+    const auto before = fixes_.validSentences();
+    fixes_.feed(byte, millis());
+    if (async_ && before != fixes_.validSentences()) receiverHeard();
+}
+
 bool DuckGPS::update() {
     if (!started_) return false;
-    const uint32_t fixesBefore = gps.sentencesWithFix();
-    // Only bytes that are actually waiting: read() returns -1 on an empty
-    // buffer, and that must never reach the NMEA parser.
-    while (GPSSerial.available() > 0) {
-        const int c = GPSSerial.read();
-        if (c < 0) break;
-        gps.encode(static_cast<char>(c));
+    const uint32_t before = fixes_.emitted();
+    // Service buffered input before a baud-scan timeout. This makes a caller
+    // arriving at the boundary consume valid NMEA rather than discard it.
+    if (portOpen_) {
+        const size_t budget = async_ ? options_.maxBytesPerUpdate : 512;
+        for (size_t i = 0; i < budget && GPSSerial.available() > 0; ++i) {
+            const int c = GPSSerial.read();
+            if (c < 0) break;
+            ingest(static_cast<char>(c));
+        }
+        // Drain an existing backlog before timing out a pending GGA/RMC pair.
+        if (GPSSerial.available() == 0) fixes_.tick(millis());
     }
-    return gps.sentencesWithFix() != fixesBefore;
+    if (async_ && (status_.state == State::Observing || status_.state == State::TimedOut)) {
+        DuckGPSFix fix;
+        if (fixes_.latest(fix) && fix.sequence != observedSequence_) {
+            observedSequence_ = fix.sequence;
+            if (options_.receiver == Receiver::NmeaOnly || !options_.configure) {
+                status_.outputObserved = true;
+                status_.state = State::Ready;
+            }
+            if (fix.hasGga && fix.hasRmc) {
+                status_.outputObserved = true;
+                if (havePreviousTod_ && (fix.timeOfDayMs + 86400000UL - previousTod_) % 86400000UL == 1000)
+                    status_.oneHzObserved = true;
+                previousTod_ = fix.timeOfDayMs; havePreviousTod_ = true;
+                if (status_.commandsSent && status_.oneHzObserved) status_.state = State::Ready;
+            }
+        }
+    }
+    advanceStartup();
+    return fixes_.emitted() != before;
 }
 
 bool DuckGPS::readData(unsigned long ms) {
@@ -487,7 +633,8 @@ bool DuckGPS::readData(unsigned long ms) {
 }
 
 bool DuckGPS::hasFix(uint32_t maxAgeMs) {
-    return gps.location.isValid() && gps.location.age() <= maxAgeMs;
+    DuckGPSFix fix;
+    return fixes_.latest(fix) && fix.positionValid && uint32_t(millis()-fix.receivedAtMs) <= maxAgeMs;
 }
 
 bool DuckGPS::timeValid(uint32_t maxAgeMs) {
@@ -568,19 +715,17 @@ size_t DuckGPS::toJson(char* out, size_t outSize, int32_t counter, uint32_t maxA
     json.add("{");
     if (counter >= 0) json.add("\"c\":%ld,", static_cast<long>(counter));
 
-    if (gps.location.isValid()) {
-        json.add("\"lat\":%.5f,\"lng\":%.5f", lat(), lng());
-        if (gps.altitude.isValid()) json.add(",\"alt\":%.1f", altitudeM());
-        json.add(",\"sats\":%lu", static_cast<unsigned long>(satellites()));
-        if (gps.hdop.isValid()) json.add(",\"hdop\":%.1f", hdop() / 100.0);
-        if (!hasFix(maxAgeMs)) json.add(",\"stale\":true");
+    DuckGPSFix fix;
+    if (fixes_.latest(fix) && fix.positionValid) {
+        json.add("\"lat\":%.6f,\"lng\":%.6f", fix.latitude, fix.longitude);
+        if (fix.hasAltitude) json.add(",\"alt\":%.1f", fix.altitudeM);
+        if (fix.hasSatellites) json.add(",\"sats\":%u", unsigned(fix.satellites));
+        if (fix.hasHdop) json.add(",\"hdop\":%.2f", fix.hdop);
+        if (uint32_t(millis()-fix.receivedAtMs) > maxAgeMs) json.add(",\"stale\":true");
+        if (fix.timeValid) json.add(",\"t\":\"%s\"", fix.utc);
     } else {
-        json.add("\"error\":\"No GPS fix\",\"sats\":%lu,\"chars\":%lu",
-                 static_cast<unsigned long>(satellites()),
-                 static_cast<unsigned long>(gps.charsProcessed()));
+        json.add("\"error\":\"No GPS fix\",\"chars\":%lu", static_cast<unsigned long>(gps.charsProcessed()));
     }
-
-    if (timeValid(maxAgeMs)) json.add(",\"t\":\"%s\"", ISO8601().c_str());
     json.add("}");
     return json.finish();
 }
